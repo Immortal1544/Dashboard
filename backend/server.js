@@ -1,7 +1,7 @@
 import express from 'express';
-import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import cors from 'cors';
-import connectDatabase from './config/db.js';
+import dotenv from 'dotenv';
 import ensureDefaultUser from './utils/ensureDefaultUser.js';
 import { requireAuth } from './middlewares/authMiddleware.js';
 import authRoutes from './routes/auth.js';
@@ -17,8 +17,9 @@ import purchaseRoutes from './routes/purchases.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/personal-sales-dashboard';
 
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
@@ -33,7 +34,7 @@ app.use('/api/purchases', requireAuth, purchaseRoutes);
 app.use('/api/analytics', requireAuth, analyticsRoutes);
 
 app.get('/', (req, res) => {
-  res.send({ message: 'Personal Sales Dashboard API running' });
+  res.send('API is running...');
 });
 
 app.use((err, req, res, next) => {
@@ -42,12 +43,24 @@ app.use((err, req, res, next) => {
 });
 
 const startServer = async () => {
-  await connectDatabase();
-  await ensureDefaultUser();
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log('MongoDB connected');
 
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+    await ensureDefaultUser();
+
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
+    server.on('error', (error) => {
+      console.error('Server startup error:', error);
+      process.exit(1);
+    });
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  }
 };
 
 startServer();

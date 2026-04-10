@@ -17,7 +17,11 @@ import purchaseRoutes from './routes/purchases.js';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/personal-sales-dashboard';
+
+if (!process.env.MONGO_URI) {
+  console.error('MONGO_URI is missing in environment variables');
+  process.exit(1);
+}
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
@@ -34,7 +38,7 @@ app.use('/api/purchases', requireAuth, purchaseRoutes);
 app.use('/api/analytics', requireAuth, analyticsRoutes);
 
 app.get('/', (req, res) => {
-  res.send('API is running...');
+  res.send('API running...');
 });
 
 app.use((err, req, res, next) => {
@@ -42,9 +46,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: err.message || 'Server error' });
 });
 
-const startServer = async () => {
-  try {
-    await mongoose.connect(MONGO_URI);
+mongoose.connect(process.env.MONGO_URI)
+  .then(async () => {
     console.log('MongoDB connected');
 
     await ensureDefaultUser();
@@ -57,10 +60,8 @@ const startServer = async () => {
       console.error('Server startup error:', error);
       process.exit(1);
     });
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
+  })
+  .catch((err) => {
+    console.error('MongoDB connection failed:', err.message);
     process.exit(1);
-  }
-};
-
-startServer();
+  });
